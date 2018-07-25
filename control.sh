@@ -1,4 +1,5 @@
 #!/bin/bash
+export GIN_MODE=release
 
 WORKSPACE=$(cd $(dirname $0)/; pwd)
 cd $WORKSPACE
@@ -75,7 +76,8 @@ function tailf() {
 }
 
 function build() {
-    go build
+    env GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build
+    # go build
     if [ $? -ne 0 ]; then
         exit $?
     fi

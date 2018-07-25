@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"database/sql"
+	"github.com/sirupsen/logrus"
 )
 
 type Project struct {
@@ -15,6 +16,7 @@ type Project struct {
 	ServerList             string `json:"serverList" form:"serverList"`
 	DeployedAt             Time   `json:"deployedAt" form:"deployedAt"`
 	DeploymentPath         string `json:"deploymentPath" form:"deploymentPath"`
+	SourcePath             string `json:"sourcePath" form:"sourcePath"`
 	StartScript            string `json:"startScript" form:"startScript"`
 	StopScript             string `json:"stopScript" form:"stopScript"`
 	RestartScript          string `json:"restartScript" form:"restartScript"`
@@ -101,6 +103,24 @@ func ProjectUpdateServerList(project *Project) error {
 	return nil
 }
 
+func ProjectUpdateBase(project *Project) error {
+	sql := "update project set name=?,run_type=?,source_path=? where id=?"
+	stmt, err := Mgr.db.Prepare(sql)
+	defer stmt.Close()
+	checkErr(err)
+
+	res, err := stmt.Exec(&project.Name, &project.RunType, &project.SourcePath, &project.Id)
+	checkErr(err)
+
+	affect, err := res.RowsAffected()
+	checkErr(err)
+
+	if affect != 1 {
+		return errors.New("no affect rows")
+	}
+	return nil
+}
+
 func ProjectUpdate(project *Project) error {
 	sql := "update project set " +
 		" start_script=?,stop_script=?,restart_script=?,package_script=?,before_deployment_script=?,deployment_script=?,after_deployment_script=? " +
@@ -142,6 +162,7 @@ func ProjectAdd(project *Project) error {
 
 func checkErr(err error) {
 	if err != nil {
+		logrus.Error(err)
 		panic(err)
 	}
 }

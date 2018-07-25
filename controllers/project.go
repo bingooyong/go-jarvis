@@ -36,6 +36,8 @@ func ProjectUpdate(c *gin.Context) {
 	if project.Id != 0 {
 		if project.ServerList != "" {
 			err = models.ProjectUpdateServerList(&project)
+		} else if project.Code != "" {
+			err = models.ProjectUpdateBase(&project)
 		} else {
 			err = models.ProjectUpdate(&project)
 		}

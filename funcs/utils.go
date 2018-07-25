@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"errors"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
 func GetWorkPath() string {
@@ -17,6 +18,11 @@ func GetWorkPath() string {
 		os.MkdirAll(filePath, 0755)
 	}
 	return filePath
+}
+
+func GetPwd() string {
+	pwd, _ := os.Getwd()
+	return pwd
 }
 
 func GetTag() string {
@@ -55,4 +61,30 @@ func isError(err error) bool {
 		logrus.Error(err.Error())
 	}
 	return err != nil
+}
+
+func GetFilenameExtension(path string) (ext string) {
+	var extIndex int
+	if path == "" {
+		return
+	}
+	if extIndex = strings.LastIndex(path, "."); extIndex == -1 {
+		return
+	}
+	folderIndex := strings.LastIndex(path, "/")
+	if folderIndex > extIndex {
+		return
+	}
+	runes := []rune(path)
+	ext = string(runes[extIndex+1:])
+	return
+}
+
+func Contains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
 }

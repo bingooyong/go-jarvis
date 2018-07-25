@@ -3,6 +3,8 @@ package models
 import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/lvyong1985/go-jarvis/funcs"
+	"github.com/sirupsen/logrus"
 )
 
 type manager struct {
@@ -12,7 +14,9 @@ type manager struct {
 var Mgr *manager
 
 func init() {
-	db, err := sql.Open("sqlite3", "./go-jarvis.db")
+	s := funcs.GetPwd() + "/go-jarvis.db"
+	logrus.Info("open sqlite3 db ", s)
+	db, err := sql.Open("sqlite3", s)
 	checkErr(err)
 	Mgr = &manager{db: db}
 }

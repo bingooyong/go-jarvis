@@ -19,6 +19,7 @@ func main() {
 	if *version {
 		fmt.Println(g.VERSION)
 		os.Exit(0)
+		return
 	}
 
 	cfg := config.Instance()

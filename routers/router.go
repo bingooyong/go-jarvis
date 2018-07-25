@@ -10,6 +10,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"net/http"
+	"github.com/lvyong1985/go-jarvis/funcs"
 )
 
 var router *gin.Engine
@@ -21,7 +22,7 @@ func init() {
 
 	router.Use(sessions.Sessions("mysession", store))
 	router.Use(logger())
-	router.Use(static.Serve("/web", static.LocalFile("./static", true)))
+	router.Use(staticHandle())
 
 	router.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/web")
@@ -49,6 +50,34 @@ func init() {
 	deployment.Use(controllers.AuthRequired())
 	deployment.POST("/publish", controllers.DeploymentPublish)
 	deployment.GET("/:id/record", controllers.DeploymentConsole)
+}
+
+var StaticSuffix = []string{"html", "js", "json", "csv", "css", "png", "svg", "eot", "ttf", "woff", "appcache", "jpg", "jpeg", "gif", "ico"}
+
+func staticHandle() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		urlPrefix := "/web"
+		urlPath := c.Request.URL.Path
+		staticPath := funcs.GetPwd() + "/static"
+		fs := static.LocalFile(staticPath, true)
+		if !fs.Exists(urlPrefix, urlPath) {
+			return
+		}
+		ext := funcs.GetFilenameExtension(urlPath)
+		if funcs.Contains(StaticSuffix, ext) {
+			fileserver := http.FileServer(fs)
+			if urlPrefix != "" {
+				fileserver = http.StripPrefix(urlPrefix, fileserver)
+			}
+			fileserver.ServeHTTP(c.Writer, c.Request)
+			c.Abort()
+		} else {
+			fileserver := http.FileServer(http.Dir(staticPath))
+			fileserver = http.StripPrefix(urlPath, fileserver)
+			fileserver.ServeHTTP(c.Writer, c.Request)
+			c.Abort()
+		}
+	}
 }
 
 var staticReg = regexp.MustCompile(".(js|css|woff2|html|woff|ttf|svg|png|eot|map)$")
