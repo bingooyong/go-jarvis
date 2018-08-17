@@ -1,16 +1,16 @@
 package funcs
 
 import (
-	"golang.org/x/crypto/ssh"
-	"io/ioutil"
-	"github.com/sirupsen/logrus"
-	"time"
 	"fmt"
-	"path"
-	"os"
 	"github.com/pkg/sftp"
-	"strings"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 	"io"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
+	"time"
 )
 
 var (
@@ -23,10 +23,9 @@ type SSH struct {
 	Username     string
 	Password     string
 	Key          string
-	sftpClient   *sftp.Client
 	client       *ssh.Client
+	sftpClient   *sftp.Client
 	clientConfig *ssh.ClientConfig
-	session      *ssh.Session
 	stdout       io.Writer
 }
 
@@ -125,16 +124,6 @@ func (s *SSH) ExecCmd(cmd string) error {
 	return nil
 }
 
-func (s *SSH) ExecCmds(cmds []string) error {
-	for _, cmd := range cmds {
-		err := s.ExecCmd(cmd)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *SSH) ExecMulti(cmds ...string) error {
 	cmd := strings.Join(cmds, ";")
 	return s.ExecCmd(cmd)
@@ -172,7 +161,7 @@ func readKeyFile(key string, password string) (ssh.Signer, error) {
 	return signer, nil
 }
 
-func (s *SSH) Put(localFilePath string, remotePath string) {
+func (s *SSH) Put(localFilePath string, remotePath string) error {
 	srcFile, err := os.Open(localFilePath)
 	if err != nil {
 		fmt.Println("os.Open error : ", localFilePath)
@@ -199,4 +188,10 @@ func (s *SSH) Put(localFilePath string, remotePath string) {
 	}
 	dstFile.Write(ff)
 	fmt.Println(localFilePath + "  copy file to remote server finished!")
+	return nil
+}
+
+func (s *SSH) Close() {
+	defer s.client.Close()
+	defer s.sftpClient.Close()
 }

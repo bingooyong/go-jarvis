@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 10010
 deploy:
   path: "/home/footstone"
 #log-path: "/tmp/log/go-jarvis.log"

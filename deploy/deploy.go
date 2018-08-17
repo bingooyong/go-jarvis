@@ -1,14 +1,14 @@
 package deploy
 
 import (
-	"github.com/lvyong1985/go-jarvis/models"
-	"path/filepath"
-	"strconv"
-	"github.com/sirupsen/logrus"
+	"fmt"
 	"github.com/lvyong1985/go-jarvis/config"
 	"github.com/lvyong1985/go-jarvis/funcs"
+	"github.com/lvyong1985/go-jarvis/models"
+	"github.com/sirupsen/logrus"
+	"path/filepath"
+	"strconv"
 	"strings"
-	"fmt"
 )
 
 var jarvis = "jarvis"
@@ -58,7 +58,6 @@ func (d *Deploy) Exec() {
 	linkPath := d.Deployment.DeploymentPath
 	project := d.ProjectDetail
 
-	var cmd string
 	var prefix string
 	for idx, server := range d.ProjectDetail.ServerList {
 		serverDetail := models.GetServerDetail(server)
@@ -69,67 +68,28 @@ func (d *Deploy) Exec() {
 			logrus.Infof("[%s]create ssh client error :%s", serverDetail.Ip, err)
 			continue
 		}
+		defer sshClient.Close()
 		logrus.Infof("开始发布 Project:%s, Idx:%s Server:%s ", d.ProjectDetail.Code, strconv.Itoa(idx), server)
-
-		d.log("### " + prefix + "同步文件到服务器(" + server + ")")
-		// mkdir
-		d.log("#### " + prefix + ".1 创建文件存储目录")
-		d.log("在部署服务器(" + server + ")上创建目录：" + finaleDeploymentPath)
-		d.log("```shell\n" + "$ mkdir " + finaleDeploymentPath + "\n" + "```")
-		sshClient.ExecCmd("mkdir -p " + finaleDeploymentPath)
-
-		// sync file
-		d.log("#### " + prefix + ".2 同步文件")
-		d.log(
-			"把文件(" + releaseFile + ")同步到部署服务器(" + server + ")上的" + finaleDeploymentPath + "目录")
-		d.log("```shell\n" + "sftp> put " + releaseFile + " " + finaleDeploymentPath + "\n" + "```")
-		sshClient.Put(releaseFile, finaleDeploymentPath)
-
-		// link
-		d.log("#### " + prefix + ".3 创建软链")
-		d.log("在部署服务器(" + server + ")上创建软链")
-		d.log("```shell\n" + "$ ln -vnsf " + finaleDeploymentPath + " " + linkPath + "\n" + "```")
-		common := "ln -vnsf " + finaleDeploymentPath + " " + linkPath
-		sshClient.ExecCmd(common)
-
-		// 解压
-		prefix = "2." + strconv.Itoa(idx)
-		d.log("## 2 在部署服务器上执行命令")
-		d.log("### " + prefix + " 在部署服务器(" + server + ")上执行命令")
-		cmd = "cd " + linkPath + ";" + decompressFileCommand(releaseFile)
-		d.log("```shell\n $ " + cmd + " \n```")
-		sshClient.ExecCmd(cmd)
-
-		exportCommand := "export TERM=xterm"
-		sourceCommand := "source /etc/profile"
-		bashProfile := "source ~/.bash_profile"
-		bashRc := "source ~/.bashrc"
-		currentFolder := "cd " + linkPath
-
-		// before deployment command
-
-		if project.BeforeDeploymentScript != "" {
-			d.log("#### " + prefix + ".1 在部署服务器(" + server + ")上执行执行发布前脚本命令")
-			d.log("```shell\n $" + project.BeforeDeploymentScript + "\n" + "```")
-			d.log("命令执行结果")
-			sshClient.ExecMulti(sourceCommand, exportCommand, bashProfile, bashRc, currentFolder, project.BeforeDeploymentScript, "sleep 1")
+		commands := []Command{
+			&Mkdir{path: finaleDeploymentPath, name: "创建目录"},
+			&Sync{sourcePath: releaseFile, targetPath: finaleDeploymentPath, name: "上传发布包"},
+			&Link{sourcePath: finaleDeploymentPath, targetPath: linkPath, name: "创建软链接"},
+			&Unzip{path: linkPath, file: releaseFile, name: "解压发布包"},
+			&Script{workPath: linkPath, execScript: project.BeforeDeploymentScript, name: "发布前脚本"},
+			&Script{workPath: linkPath, execScript: project.DeploymentScript, name: "发布脚本"},
+			&Script{workPath: linkPath, execScript: project.AfterDeploymentScript, name: "发布后脚本"},
 		}
-		// deployment command
-		if project.DeploymentScript != "" {
-
-			d.log("#### " + prefix + ".2 在部署服务器(" + server + ")上执行执行发布脚本命令")
-			d.log("```shell\n $" + project.DeploymentScript + "\n" + "```")
-			sshClient.ExecMulti(sourceCommand, exportCommand, bashProfile, bashRc, currentFolder, project.DeploymentScript, "sleep 1")
-		}
-
-		if project.AfterDeploymentScript != "" {
-			// after deployment command
-			d.log("#### " + prefix + ".3 在部署服务器(" + server + ")上执行执行发布后脚本命令")
-			d.log("```shell\n $" + project.AfterDeploymentScript + "\n" + "```")
-			sshClient.ExecMulti(sourceCommand, exportCommand, bashProfile, bashRc, currentFolder, project.AfterDeploymentScript, "sleep 1")
+		d.log("### " + prefix + " 同步文件到服务器(" + server + ")")
+		for i, cmd := range commands {
+			d.log(funcs.Sprintf("#### %s.%d 【%s】 \n", prefix, i, cmd.getName()), funcs.Sprintf("%v", cmd))
+			if err := cmd.exec(sshClient); err != nil {
+				d.logf("# 项目 【%s】【%s】", d.ProjectDetail.Code, "===========发版失败========")
+				d.Done(models.FAIL)
+				return
+			}
 		}
 	}
-	d.logf("# 项目 【%s】【%s】", d.ProjectDetail.Code, "===========发版结束========")
+	d.logf("# 项目 【%s】【%s】", d.ProjectDetail.Code, "===========发版成功========")
 	d.Done(models.SUCCESS)
 }
 
@@ -159,29 +119,18 @@ func (d *Deploy) buildFilePathFromSource() (releasFilePath string, err error) {
 	return wd + "/output/ROOT.zip", nil
 }
 
-func (d *Deploy) log(log string) {
-	d.msg <- []byte(log + "\n\n")
+func (d *Deploy) log(logs ...string) {
+	for _, log := range logs {
+		d.msg <- []byte(log + "\n\n")
+	}
 }
 
 func (d *Deploy) logf(f string, args ...interface{}) {
 	d.msg <- []byte(fmt.Sprintf(f, args...) + "\n\n")
 }
 
-func decompressFileCommand(filename string) string {
-	ext := filepath.Ext(filename)
-	switch ext {
-	case ".gz":
-		return "tar xzvf " + filepath.Base(filename)
-	case ".tar":
-		return "tar xvf " + filepath.Base(filename)
-	case ".zip":
-		return "unzip -o " + filepath.Base(filename)
-	default:
-		return ""
-	}
-}
-
 func (d *Deploy) Done(code models.DeploymentStatusCode) {
+	defer d.logConsole.Close()
 	switch code {
 	case models.SUCCESS:
 		d.Deployment.Success()

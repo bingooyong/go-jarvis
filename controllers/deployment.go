@@ -1,17 +1,17 @@
 package controllers
 
 import (
-	"net/http"
 	"github.com/gin-gonic/gin"
-	"github.com/lvyong1985/go-jarvis/models"
-	"github.com/lvyong1985/go-jarvis/deploy"
-	"path/filepath"
-	"strconv"
-	"github.com/lvyong1985/go-jarvis/funcs"
 	"github.com/lvyong1985/go-jarvis/config"
-	"os"
+	"github.com/lvyong1985/go-jarvis/deploy"
+	"github.com/lvyong1985/go-jarvis/funcs"
+	"github.com/lvyong1985/go-jarvis/models"
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 )
 
 type DeploymentPublishRequest struct {
@@ -71,6 +71,10 @@ func DeploymentConsole(c *gin.Context) {
 	logrus.Infof("deploy id %s log %s", id, path)
 	dat, _ := ioutil.ReadFile(path)
 	log := string(dat[:])
+	c.Header("expires", "0")
+	c.Header("Age", "0")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("pragma", "no-cache")
 	c.JSON(http.StatusOK, Success(&DeploymentLog{
 		Text:   log,
 		Status: models.DeploymentStatus[deployment.Status],

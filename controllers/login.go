@@ -1,11 +1,12 @@
 package controllers
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/sessions"
-	"strings"
-	"net/http"
+	"github.com/gin-gonic/gin"
+	"github.com/lvyong1985/go-jarvis/models"
 	"github.com/sirupsen/logrus"
+	"net/http"
+	"strings"
 )
 
 type LoginSuccess struct {
@@ -20,7 +21,14 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Parameters can't be empty"})
 		return
 	}
-	if username == "luoye0602@163.com" && password == "111111" {
+
+	info, err := models.DetailByEmail(username)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication failed"})
+		return
+	}
+	
+	if username == info.Username && password == info.Ticket {
 		session.Set("user", username) //In real world usage you'd set this to the users ID
 		err := session.Save()
 		if err != nil {

@@ -74,5 +74,6 @@ func (console *LogConsole) Write(data []byte) (int, error) {
 }
 
 func (console *LogConsole) Close() error {
+	defer console.LogFile.Close()
 	return CloseAndWait(console.stop, console.closed, CancelCommandTimeout)
 }
