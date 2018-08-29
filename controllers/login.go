@@ -29,7 +29,7 @@ func Login(c *gin.Context) {
 	}
 	
 	if username == info.Username && password == info.Ticket {
-		session.Set("user", username) //In real world usage you'd set this to the users ID
+		session.Set("user", info.Id) //In real world usage you'd set this to the users ID
 		err := session.Save()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate session token"})

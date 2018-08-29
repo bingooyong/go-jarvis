@@ -28,11 +28,11 @@ func decompressFileCommand(filename string) string {
 	ext := filepath.Ext(filename)
 	switch ext {
 	case ".gz":
-		return "tar xzvf " + filepath.Base(filename)
+		return "tar xzf " + filepath.Base(filename)
 	case ".tar":
-		return "tar xvf " + filepath.Base(filename)
+		return "tar xf " + filepath.Base(filename)
 	case ".zip":
-		return "unzip -o " + filepath.Base(filename)
+		return "unzip -qo " + filepath.Base(filename)
 	default:
 		return ""
 	}

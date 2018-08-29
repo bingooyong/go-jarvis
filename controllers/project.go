@@ -7,6 +7,7 @@ import (
 	"strings"
 	"github.com/sirupsen/logrus"
 	"strconv"
+	"github.com/gin-contrib/sessions"
 )
 
 func ProjectUpdate(c *gin.Context) {
@@ -42,6 +43,10 @@ func ProjectUpdate(c *gin.Context) {
 			err = models.ProjectUpdate(&project)
 		}
 	} else {
+		session := sessions.Default(c)
+		userId := session.Get("user").(int64)
+		project.OwnerId = userId
+
 		err = models.ProjectAdd(&project)
 	}
 
@@ -61,7 +66,9 @@ func ProjectRouter(c *gin.Context) {
 }
 
 func ProjectList(c *gin.Context) {
-	result := models.ListProject()
+	session := sessions.Default(c)
+	userId := session.Get("user").(int64)
+	result := models.ListProject(userId)
 	c.JSON(http.StatusOK, Success(result))
 }
 

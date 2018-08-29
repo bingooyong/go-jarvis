@@ -11,7 +11,7 @@ type Project struct {
 	Id                     int64  `json:"id" form:"id"`
 	Name                   string `json:"name" form:"name"`
 	Code                   string `json:"code" form:"code"`
-	OwnerName              string `json:"ownerName" form:"ownerName"`
+	OwnerId                int64  `json:"ownerId" form:"ownerId"`
 	RunType                int    `json:"runType" form:"runType"`
 	ServerList             string `json:"serverList" form:"serverList"`
 	DeployedAt             Time   `json:"deployedAt" form:"deployedAt"`
@@ -30,7 +30,7 @@ type ProjectDetail struct {
 	Id                     int64    `json:"id" form:"id"`
 	Name                   string   `json:"name" form:"name"`
 	Code                   string   `json:"code" form:"code"`
-	OwnerName              string   `json:"ownerName" form:"ownerName"`
+	OwnerId                int64    `json:"ownerId" form:"ownerId"`
 	RunType                int      `json:"runType" form:"runType"`
 	ServerList             []string `json:"serverList" form:"serverList"`
 	DeployedAt             Time     `json:"deployedAt" form:"deployedAt"`
@@ -46,8 +46,8 @@ type ProjectDetail struct {
 	AfterDeploymentScript  string   `json:"afterDeploymentScript" form:"afterDeploymentScript"`
 }
 
-func ListProject() []Project {
-	rows, err := Mgr.db.Query("SELECT id,name,code,owner_id,deployed_at,deployment_path FROM project")
+func ListProject(userId int64) []Project {
+	rows, err := Mgr.db.Query("SELECT id,name,code,owner_id,deployed_at,deployment_path FROM project where owner_id = ?", userId)
 	defer rows.Close()
 
 	results := []Project{}
@@ -55,7 +55,7 @@ func ListProject() []Project {
 	for rows.Next() {
 		var project Project
 		err = rows.Scan(
-			&project.Id, &project.Name, &project.Code, &project.OwnerName, &project.DeployedAt, &project.DeploymentPath)
+			&project.Id, &project.Name, &project.Code, &project.OwnerId, &project.DeployedAt, &project.DeploymentPath)
 		checkErr(err)
 		results = append(results, project)
 	}
@@ -72,7 +72,7 @@ func DetailProject(id *string) ProjectDetail {
 		"package_script FROM project where id = ?"
 	row := Mgr.db.QueryRow(sql, id)
 	err := row.Scan(
-		&project.Id, &project.Name, &project.Code, &project.RunType, &serverList, &project.OwnerName, &project.DeployedAt,
+		&project.Id, &project.Name, &project.Code, &project.RunType, &serverList, &project.OwnerId, &project.DeployedAt,
 		&project.SourcePath, &project.ReleasePath, &project.DeploymentPath,
 		&project.StartScript, &project.StopScript, &project.RestartScript,
 		&project.BeforeDeploymentScript, &project.DeploymentScript, &project.AfterDeploymentScript,
@@ -149,7 +149,7 @@ func ProjectAdd(project *Project) error {
 	defer stmt.Close()
 	checkErr(err)
 
-	res, err := stmt.Exec(&project.Name, &project.Code, "", &project.DeploymentPath, "1")
+	res, err := stmt.Exec(&project.Name, &project.Code, &project.OwnerId, &project.DeploymentPath, "1")
 	checkErr(err)
 
 	id, err := res.LastInsertId()
