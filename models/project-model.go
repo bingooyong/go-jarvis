@@ -163,6 +163,5 @@ func ProjectAdd(project *Project) error {
 func checkErr(err error) {
 	if err != nil {
 		logrus.Error(err)
-		panic(err)
 	}
 }
